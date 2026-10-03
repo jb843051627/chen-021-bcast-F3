@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('台站核点卡改卡')"/>
+</head>
+<body>
+<form class="layui-form" th:object="${card}">
+    <input type="hidden" name="id" th:field="*{id}">
+    <div class="mainBox">
+        <div class="main-container">
+            <div class="layui-form-item">
+                <label class="layui-form-label">卡号</label>
+                <div class="layui-input-block">
+                    <input type="text" class="layui-input layui-disabled" th:field="*{billNo}" readonly>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">所属台站</label>
+                <div class="layui-input-block">
+                    <input type="hidden" name="siteId" th:value="${card.siteId}">
+                    <input type="text" class="layui-input layui-disabled" th:value="${card.siteNo}" readonly>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">走到哪一步</label>
+                <div class="layui-input-block">
+                    <input type="text" class="layui-input layui-disabled" th:value="${statusWord}" readonly>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">挂在哪一层</label>
+                <div class="layui-input-block">
+                    <select name="nodeNo">
+                        <option value="0" th:selected="${card.nodeNo == 0}">省局</option>
+                        <option value="1" th:selected="${card.nodeNo == 1}">市局</option>
+                        <option value="2" th:selected="${card.nodeNo == null || card.nodeNo == 2}">县局</option>
+                    </select>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">应核点位数</label>
+                <div class="layui-input-block">
+                    <input type="text" name="shouldCount" class="layui-input" th:field="*{shouldCount}">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">已核点位数</label>
+                <div class="layui-input-block">
+                    <input type="text" name="doneCount" class="layui-input" th:field="*{doneCount}">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">还欠点位数</label>
+                <div class="layui-input-block">
+                    <input type="text" class="layui-input layui-disabled" th:field="*{lackCount}" readonly>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">签认号</label>
+                <div class="layui-input-block">
+                    <input type="text" class="layui-input layui-disabled" th:field="*{signNo}" readonly>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">随卡要件</label>
+                <div class="layui-input-block">
+                    <textarea name="content" class="layui-textarea" th:text="${card.content}"></textarea>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <span class="layui-badge layui-bg-gray">还欠保存时由系统按应核-已核重折；卡号、步次、签认号不由这条改。已压卡的改不动，要改只能另开一张。</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="bottom">
+        <div class="button-container">
+            <button type="submit" class="layui-btn layui-btn-normal layui-btn-sm" lay-submit lay-filter="card-save">
+                <i class="layui-icon layui-icon-ok"></i> 保存
+            </button>
+        </div>
+    </div>
+</form>
+<th:block th:include="include :: footer"/>
+<script>
+    layui.use(['form', 'jquery'], function () {
+        let form = layui.form;
+        let $ = layui.jquery;
+        let MODULE_PATH = rootPath + "/BcastUnitCardController";
+        form.on('submit(card-save)', function (data) {
+            $.ajax({
+                url: MODULE_PATH + '/edit',
+                data: data.field,
+                dataType: 'json',
+                type: 'post',
+                success: function (r) {
+                    layer.msg(r.msg, {icon: r.code === 200 ? 1 : 2, time: 1600}, function () {
+                        if (r.code === 200) {
+                            parent.layer.close(parent.layer.getFrameIndex(window.name));
+                            parent.layui.table.reload("unit-card-table");
+                        }
+                    });
+                }
+            });
+            return false;
+        });
+    });
+</script>
+</body>
+</html>

@@ -66,6 +66,11 @@ public class TBcastUnitCard implements Serializable {
     @ApiModelProperty(value = "还欠点位数")
     private Integer lackCount;
 
+    /** 签认号（推进到核讫由系统发，人填不作数；旧卡空着） */
+    @TableField("sign_no")
+    @ApiModelProperty(value = "签认号（系统发）")
+    private String signNo;
+
     /** 随卡交来的属地要件 */
     @TableField("content")
     @ApiModelProperty(value = "随卡交来的属地要件")
@@ -170,6 +175,14 @@ public class TBcastUnitCard implements Serializable {
 
     public void setLackCount(Integer lackCount) {
         this.lackCount = lackCount;
+    }
+
+    public String getSignNo() {
+        return signNo;
+    }
+
+    public void setSignNo(String signNo) {
+        this.signNo = signNo;
     }
 
     public String getContent() {

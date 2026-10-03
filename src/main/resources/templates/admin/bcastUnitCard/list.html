@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('台站核点卡')"/>
+</head>
+<body class="pear-container">
+<!-- 本级这一层：层级序与属地那一路前缀。按登录人部门带出，只圈本级有权的那一层 -->
+<div class="layui-card">
+    <div class="layui-card-body">
+        <form class="layui-form" action="">
+            <div class="layui-form-item">
+                <label class="layui-form-label">本层层级</label>
+                <div class="layui-input-inline">
+                    <select name="nodeNo" lay-filter="nodeNo">
+                        <option value="0">省局</option>
+                        <option value="1">市局</option>
+                        <option value="2" selected>县局</option>
+                    </select>
+                </div>
+                <label class="layui-form-label">属地那一路</label>
+                <div class="layui-input-inline" style="width:220px;">
+                    <input type="text" name="roadPrefix" placeholder="如 长岭省—河湾区" class="layui-input">
+                </div>
+                <button class="pear-btn pear-btn-md pear-btn-primary" lay-submit lay-filter="card-query">
+                    <i class="layui-icon layui-icon-search"></i> 翻本层的册
+                </button>
+                <button type="button" class="pear-btn pear-btn-md" id="btn-coverage">
+                    <i class="layui-icon layui-icon-chart"></i> 本季覆盖率
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 寻卡的口子：卡号、台站代号、台站类别，给全给半都行 -->
+<div class="layui-card">
+    <div class="layui-card-body">
+        <form class="layui-form" action="">
+            <div class="layui-form-item">
+                <label class="layui-form-label">卡号</label>
+                <div class="layui-input-inline">
+                    <input type="text" name="billNo" placeholder="卡号整段或中间几个字" class="layui-input">
+                </div>
+                <label class="layui-form-label">台站代号</label>
+                <div class="layui-input-inline">
+                    <input type="text" name="siteNo" placeholder="台站代号" class="layui-input">
+                </div>
+                <label class="layui-form-label">台站类别</label>
+                <div class="layui-input-inline">
+                    <select name="siteType">
+                        <option value="">不限</option>
+                        <option value="无线发射台">无线发射台</option>
+                        <option value="微波站">微波站</option>
+                        <option value="转播台">转播台</option>
+                    </select>
+                </div>
+                <button class="pear-btn pear-btn-md pear-btn-warming" lay-submit lay-filter="card-search">
+                    <i class="layui-icon layui-icon-search"></i> 寻卡
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="layui-card">
+    <div class="layui-card-body">
+        <table id="unit-card-table" lay-filter="unit-card-table"></table>
+    </div>
+</div>
+</body>
+
+<script type="text/html" id="card-toolbar">
+    <button shiro:hasPermission="bcast:bcastUnitCard:add" class="pear-btn pear-btn-primary pear-btn-md" lay-event="add">
+        <i class="layui-icon layui-icon-add-1"></i> 立卡
+    </button>
+</script>
+
+<script type="text/html" id="card-bar">
+    {{#  if(d.status === 0 || d.status === null){ }}
+    <button shiro:hasPermission="bcast:bcastUnitCard:edit" class="pear-btn pear-btn-primary pear-btn-sm" lay-event="advance">推进核讫</button>
+    <button shiro:hasPermission="bcast:bcastUnitCard:edit" class="pear-btn pear-btn-sm" lay-event="edit">改</button>
+    <button shiro:hasPermission="bcast:bcastUnitCard:remove" class="pear-btn pear-btn-danger pear-btn-sm" lay-event="remove">叫停</button>
+    {{#  } else if(d.status === 1){ }}
+    <button shiro:hasPermission="bcast:bcastUnitCard:edit" class="pear-btn pear-btn-primary pear-btn-sm" lay-event="advance">推进压卡</button>
+    <button shiro:hasPermission="bcast:bcastUnitCard:edit" class="pear-btn pear-btn-warming pear-btn-sm" lay-event="revert">退回待核</button>
+    {{#  } else { }}
+    <span class="layui-badge layui-bg-gray">已压卡封顶，要改只能另开一张</span>
+    {{#  } }}
+</script>
+
+<th:block th:include="include :: footer"/>
+<script>
+    layui.use(['table', 'form', 'jquery'], function () {
+        let table = layui.table;
+        let form = layui.form;
+        let $ = layui.jquery;
+        let MODULE_PATH = rootPath + "/BcastUnitCardController/";
+
+        // 本层范围从顶头两张表单一并带上
+        function scopeOf(extra) {
+            let f1 = $('.pear-container form').first().serializeArray();
+            let data = {};
+            $.each(f1, function (i, kv) { data[kv.name] = kv.value; });
+            if (extra) { $.each(extra, function (k, v) { data[k] = v; }); }
+            return data;
+        }
+
+        let cols = [[
+            {title: 'ID', field: 'id', align: 'center', hide: true},
+            {title: '卡号', field: 'billNo', align: 'center', width: 200},
+            {title: '台站代号', field: 'siteNo', align: 'center'},
+            {title: '属地层级序', field: 'nodeNo', align: 'center', width: 100,
+                templet: function (d) { return d.nodeNo === 2 ? '县' : (d.nodeNo === 1 ? '市' : '省'); }},
+            {title: '应核点位数', field: 'shouldCount', align: 'center'},
+            {title: '已核点位数', field: 'doneCount', align: 'center'},
+            {title: '还欠点位数', field: 'lackCount', align: 'center'},
+            {title: '签认号', field: 'signNo', align: 'center', width: 200},
+            {title: '走到哪一步', field: 'status', align: 'center',
+                templet: function (d) {
+                    if (d.status === 1) return '核讫';
+                    if (d.status === 2) return '压卡';
+                    return '待核';
+                }},
+            {title: '操作', toolbar: '#card-bar', align: 'center', width: 260}
+        ]];
+
+        table.render({
+            elem: '#unit-card-table',
+            url: MODULE_PATH + 'list',
+            page: true,
+            method: 'get',
+            cols: cols,
+            skin: 'line',
+            toolbar: '#card-toolbar',
+            where: {nodeNo: 2, roadPrefix: ''}
+        });
+
+        form.on('submit(card-query)', function (data) {
+            table.reload('unit-card-table', {where: data.field, page: {curr: 1}});
+            return false;
+        });
+
+        // 寻卡：命中的卡连带所属台站与压在哪一层，直接铺在同一屏
+        form.on('submit(card-search)', function (data) {
+            $.get(MODULE_PATH + 'search', scopeOf(data.field), function (res) {
+                let rows = (res.data || []).map(function (h) {
+                    let c = h.card || {};
+                    return $.extend({}, c, {
+                        siteNo: h.siteNo || c.siteNo,
+                        siteName: h.siteName, siteType: h.siteType,
+                        roadName: h.roadName, statusWord: h.statusWord
+                    });
+                });
+                table.reload('unit-card-table', {
+                    data: rows, url: '', page: {curr: 1}, limit: 50
+                });
+                layer.msg(res.msg, {icon: 1, time: 1200});
+            });
+            return false;
+        });
+
+        $('#btn-coverage').on('click', function () {
+            $.get(MODULE_PATH + 'coverage', scopeOf(), function (res) {
+                let d = res.data || {};
+                layer.alert('本季覆盖率：核讫 ' + d.verifiedCards + ' 张 / 台站总数 ' + d.siteTotal
+                    + ' 座 = ' + (d.rate != null ? (d.rate * 100).toFixed(2) : '0.00') + '%'
+                    + '<br>（分母取属地台站总数，不是已建卡数）', {title: '季度核点覆盖率'});
+            });
+        });
+
+        table.on('tool(unit-card-table)', function (obj) {
+            if (obj.event === 'remove') {
+                layer.confirm('就地叫停这张卡？压卡的撤不掉。', {icon: 3}, function (idx) {
+                    layer.close(idx);
+                    $.ajax({url: MODULE_PATH + 'remove', type: 'delete', data: {ids: obj.data.id},
+                        success: function (r) {
+                            layer.msg(r.msg, {icon: r.code === 200 ? 1 : 2, time: 1200},
+                                function () { if (r.code === 200) table.reload('unit-card-table'); });
+                        }});
+                });
+            } else if (obj.event === 'advance' || obj.event === 'revert') {
+                let act = obj.event === 'advance' ? 'advance' : 'revert';
+                $.post(MODULE_PATH + act, {id: obj.data.id}, function (r) {
+                    layer.msg(r.msg, {icon: r.code === 200 ? 1 : 2, time: 1200},
+                        function () { if (r.code === 200) table.reload('unit-card-table'); });
+                });
+            } else if (obj.event === 'edit') {
+                layer.open({type: 2, title: '改卡', shade: 0.1, area: ['560px', '560px'],
+                    content: MODULE_PATH + 'toEdit/' + obj.data.id, end: function () { table.reload('unit-card-table'); }});
+            }
+        });
+
+        table.on('toolbar(unit-card-table)', function (obj) {
+            if (obj.event === 'add') {
+                layer.open({type: 2, title: '立卡', shade: 0.1, area: ['560px', '560px'],
+                    content: MODULE_PATH + 'toAdd', end: function () { table.reload('unit-card-table'); }});
+            }
+        });
+    });
+</script>
+</html>
